@@ -1,34 +1,110 @@
-name: Python Package using Conda
+name: build
 
-on: [push]
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
 
 jobs:
-  build-linux:
+
+  build:
+
     runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 5
 
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
       with:
-        python-version: '3.10'
-    - name: Add conda to system path
+        fetch-depth: 0 
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Run Python unit tests
+      run: python3 -u -m unittest tests/tests.py
+
+    - name: Verify that the Docker image for the action builds
+      run: docker build . --file Dockerfile
+
+    - name: Create new uncommitted html file for testing
+      run: touch tests/uncommitted.html
+
+    - name: Integration test 1
+      id: integration
+      uses: ./
+      with:
+        path-to-root: tests
+        base-url-path: https://TESTING.FAKE.WEB.ADDRESS.TESTING/
+
+    - name: Output stats test 1
       run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        echo $CONDA/bin >> $GITHUB_PATH
-    - name: Install dependencies
+        echo "sitemap-path = ${{ steps.integration.outputs.sitemap-path }}"
+        echo "url-count = ${{ steps.integration.outputs.url-count }}"
+        echo "excluded-count = ${{ steps.integration.outputs.excluded-count }}"
+
+    - name: Integration test 2
+      id: integration2
+      uses: ./
+      with:
+        path-to-root: tests
+        base-url-path: https://TESTING.FAKE.WEB.ADDRESS.TESTING/
+        sitemap-format: txt 
+        additional-extensions: docx pptx
+
+    - name: Output stats test 2
       run: |
-        conda env update --file environment.yml --name base
-    - name: Lint with flake8
+        echo "sitemap-path = ${{ steps.integration2.outputs.sitemap-path }}"
+        echo "url-count = ${{ steps.integration2.outputs.url-count }}"
+        echo "excluded-count = ${{ steps.integration2.outputs.excluded-count }}"
+
+    - name: Integration test 3
+      id: integration3
+      uses: ./
+      with:
+        path-to-root: tests/subdir
+        base-url-path: https://TESTING.FAKE.WEB.ADDRESS.TESTING/
+        drop-html-extension: true
+
+    - name: Output stats test 3
       run: |
-        conda install flake8
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
+        echo "sitemap-path = ${{ steps.integration3.outputs.sitemap-path }}"
+        echo "url-count = ${{ steps.integration3.outputs.url-count }}"
+        echo "excluded-count = ${{ steps.integration3.outputs.excluded-count }}"
+
+    - name: Integration test 4
+      id: integration4
+      uses: ./
+      with:
+        path-to-root: tests/subdir
+        base-url-path: https://TESTING.FAKE.WEB.ADDRESS.TESTING/
+        sitemap-format: txt 
+        additional-extensions: docx pptx
+        drop-html-extension: true
+
+    - name: Output stats test 4
       run: |
-        conda install pytest
-        pytest
+        echo "sitemap-path = ${{ steps.integration4.outputs.sitemap-path }}"
+        echo "url-count = ${{ steps.integration4.outputs.url-count }}"
+        echo "excluded-count = ${{ steps.integration4.outputs.excluded-count }}"
+
+    - name: Integration test 5
+      id: integration5
+      uses: ./
+      with:
+        path-to-root: tests/exclude
+        base-url-path: https://TESTING.FAKE.WEB.ADDRESS.TESTING/
+        exclude-paths: /excludeSubDir /exc1.html /subdir/exc4.html
+
+    - name: Output stats test 5
+      run: |
+        echo "sitemap-path = ${{ steps.integration5.outputs.sitemap-path }}"
+        echo "url-count = ${{ steps.integration5.outputs.url-count }}"
+        echo "excluded-count = ${{ steps.integration5.outputs.excluded-count }}"
+
+    - name: Verify integration test results
+      run: python3 -u -B -m unittest tests/integration.py
