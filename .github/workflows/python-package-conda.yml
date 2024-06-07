@@ -22,7 +22,7 @@ jobs:
         dockerfile: Dockerfile
 
     - name: Build Docker image
-      run: docker build -t my-docker-image .
+      run: docker build -t generate-sitemap .
 
     - name: Run Docker container
-      run: docker run my-docker-image
+      run: docker run generate-sitemap
