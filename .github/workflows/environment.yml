@@ -1,1 +1,2 @@
-conda env export -n py36 -f py36.yml --no-builds
+conda activate build
+conda env update --file python-package-conda.yml --prune
